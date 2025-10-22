@@ -17,30 +17,32 @@ module Unmagic
 
         # Cast value from user input (e.g., form params, setter methods)
         def cast(value)
-          return nil if value.nil?
+          return nil if value.nil? || value == ''
           return value if value.is_a?(@enum_class)
 
           # Try to find the enum instance by string value
           result = @enum_class[value.to_s]
-          unless result
-            raise Unmagic::Enum::InvalidValueError, "Invalid #{@enum_class.name} value: #{value.inspect}"
-          end
+          raise Unmagic::Enum::InvalidValueError, "Invalid #{@enum_class.name} value: #{value.inspect}" unless result
+
           result
         end
 
         # Deserialize value from database
         def deserialize(value)
-          return nil if value.nil?
+          return nil if value.nil? || value == ''
+
           result = @enum_class[value]
           unless result
             raise Unmagic::Enum::InvalidValueError, "Invalid #{@enum_class.name} value in database: #{value.inspect}"
           end
+
           result
         end
 
         # Serialize value for database storage
         def serialize(value)
           return nil if value.nil?
+
           value.to_s
         end
 

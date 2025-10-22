@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-require "set"
+require 'set'
 
 module Unmagic
   # Base class for creating type-safe enums with string values
@@ -80,7 +80,6 @@ module Unmagic
     class InvalidValueError < StandardError; end
     class ReservedValueError < StandardError; end
 
-
     class << self
       # Get enum instances dynamically from constants
       def instances_by_key
@@ -88,6 +87,7 @@ module Unmagic
         constants.each_with_object({}) do |const_name, hash|
           const = const_get(const_name)
           next unless const.is_a?(Unmagic::Enum)
+
           hash[const.key_string] = const
         end
       end
@@ -98,6 +98,7 @@ module Unmagic
         constants.each_with_object({}) do |const_name, hash|
           const = const_get(const_name)
           next unless const.is_a?(Unmagic::Enum)
+
           hash[const.value] = const
         end
       end
@@ -119,15 +120,15 @@ module Unmagic
           attr_reader name
 
           # Create alias if specified
-          if options[:alias]
-            aliases = Array(options[:alias])
-            aliases.each do |alias_name|
-              alias_method alias_name, name
+          next unless options[:alias]
 
-              # Track reserved method names to prevent conflicts
-              @reserved_methods ||= Set.new
-              @reserved_methods.add(alias_name.to_s)
-            end
+          aliases = Array(options[:alias])
+          aliases.each do |alias_name|
+            alias_method alias_name, name
+
+            # Track reserved method names to prevent conflicts
+            @reserved_methods ||= Set.new
+            @reserved_methods.add(alias_name.to_s)
           end
         end
       end
@@ -164,7 +165,6 @@ module Unmagic
       def call(value)
         self[value]
       end
-
 
       # Get all valid database values (useful for validations)
       def values
@@ -213,7 +213,7 @@ module Unmagic
         other.class == self.class && @value == other.value
       elsif other.is_a?(String)
         # Check both key_string and value for flexibility
-        @key_string == other || @value == other
+        [@key_string, @value].include?(other)
       else
         # Check if it matches the original key (for symbols, classes, etc.)
         @key == other
@@ -227,7 +227,7 @@ module Unmagic
 
     # Hash code based on string value and class
     def hash
-      [ self.class, to_s ].hash
+      [self.class, to_s].hash
     end
 
     # Human-readable inspect showing how to reference this enum in code
@@ -258,8 +258,8 @@ module Unmagic
 
     # Initialize the enum with key and optional value
     def initialize(key, **attributes)
-      @key = key  # Keep original type (class, symbol, integer, string, etc.)
-      @key_string = key.to_s  # String version for lookups and comparisons
+      @key = key # Keep original type (class, symbol, integer, string, etc.)
+      @key_string = key.to_s # String version for lookups and comparisons
 
       # Extract the special 'value' option, default to string version of key
       @value = attributes.delete(:value)&.to_s || @key_string
@@ -284,12 +284,12 @@ module Unmagic
       # Set declared attributes with defaults
       self.class.attribute_metadata.each do |attr, metadata|
         value = if attributes.key?(attr)
-          attributes[attr]
-        elsif metadata.key?(:default)
-          metadata[:default]
-        else
-          nil
-        end
+                  attributes[attr]
+                elsif metadata.key?(:default)
+                  metadata[:default]
+                else
+                  nil
+                end
         instance_variable_set("@#{attr}", value)
       end
 
@@ -297,7 +297,7 @@ module Unmagic
       if defined?(Rails) && Rails.env.development?
         extra_attrs = attributes.keys - self.class.attributes
         if extra_attrs.any?
-          warn "[Unmagic::Enum] Undeclared attributes passed to #{self.class.name}: #{extra_attrs.join(", ")}"
+          warn "[Unmagic::Enum] Undeclared attributes passed to #{self.class.name}: #{extra_attrs.join(', ')}"
         end
       end
 
@@ -306,9 +306,9 @@ module Unmagic
 
     # Implement query methods like `user?` for checking enum keys
     def method_missing(method_name, *args)
-      if method_name.to_s.end_with?("?")
-        key_to_check = method_name.to_s[0..-2]  # Remove the '?'
-        @key_string == key_to_check  # Compare string versions
+      if method_name.to_s.end_with?('?')
+        key_to_check = method_name.to_s[0..-2] # Remove the '?'
+        @key_string == key_to_check # Compare string versions
       else
         super
       end
@@ -316,7 +316,7 @@ module Unmagic
 
     # Properly handle respond_to? for query methods
     def respond_to_missing?(method_name, include_private = false)
-      method_name.to_s.end_with?("?") || super
+      method_name.to_s.end_with?('?') || super
     end
 
     # Rails presence validation support - enums are never blank
@@ -331,7 +331,7 @@ module Unmagic
 
     # Load ActiveRecord extensions if ActiveRecord is available
     if defined?(ActiveRecord)
-      require "unmagic/enum/active_record_extensions"
+      require 'unmagic/enum/active_record_extensions'
       include ActiveRecordExtensions
     end
   end

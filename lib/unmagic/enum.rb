@@ -256,6 +256,11 @@ module Unmagic
       @value
     end
 
+    # Return the value when used in JSON
+    def as_json
+      to_s
+    end
+
     # Initialize the enum with key and optional value
     def initialize(key, **attributes)
       @key = key # Keep original type (class, symbol, integer, string, etc.)

@@ -23,6 +23,16 @@ RSpec.describe 'Unmagic::Enum ActiveRecord integration', :activerecord do
     SYSTEM = new('system', value: 's')
   end
 
+  # A plain ActiveModel object exercises the same assignment path ActiveRecord
+  # enums use (ActiveModel::Attribute#with_value_from_user -> assert_valid_value),
+  # so the eager-raise behaviour can be tested without a database connection.
+  class ActiveRecordTestRecord
+    include ActiveModel::Model
+    include ActiveModel::Attributes
+
+    attribute :status, ActiveRecordTestStatus.column_type
+  end
+
   describe 'ActiveRecord extensions' do
     it 'includes ActiveRecord extensions when ActiveRecord is available' do
       expect(ActiveRecordTestStatus).to respond_to(:column_type)
@@ -65,11 +75,8 @@ RSpec.describe 'Unmagic::Enum ActiveRecord integration', :activerecord do
         expect(column_type.cast('active')).to eq(ActiveRecordTestStatus::ACTIVE)
       end
 
-      it 'raises error for invalid values' do
-        expect { column_type.cast('invalid') }.to raise_error(
-          Unmagic::Enum::InvalidValueError,
-          /Invalid ActiveRecordTestStatus value/
-        )
+      it 'returns nil for invalid values (lenient, like ActiveRecord::Enum)' do
+        expect(column_type.cast('invalid')).to be_nil
       end
     end
 
@@ -91,10 +98,29 @@ RSpec.describe 'Unmagic::Enum ActiveRecord integration', :activerecord do
         expect(column_type.deserialize('')).to be_nil
       end
 
-      it 'raises error for invalid database values' do
-        expect { column_type.deserialize('invalid') }.to raise_error(
+      it 'returns nil for invalid database values (lenient, like ActiveRecord::Enum)' do
+        expect(column_type.deserialize('invalid')).to be_nil
+      end
+    end
+
+    describe '#assert_valid_value' do
+      it 'passes for nil and empty string' do
+        expect { column_type.assert_valid_value(nil) }.not_to raise_error
+        expect { column_type.assert_valid_value('') }.not_to raise_error
+      end
+
+      it 'passes for an enum instance' do
+        expect { column_type.assert_valid_value(ActiveRecordTestStatus::ACTIVE) }.not_to raise_error
+      end
+
+      it 'passes for a known value' do
+        expect { column_type.assert_valid_value('active') }.not_to raise_error
+      end
+
+      it 'raises for an unknown value' do
+        expect { column_type.assert_valid_value('invalid') }.to raise_error(
           Unmagic::Enum::InvalidValueError,
-          /Invalid ActiveRecordTestStatus value in database/
+          /Invalid ActiveRecordTestStatus value/
         )
       end
     end
@@ -121,6 +147,36 @@ RSpec.describe 'Unmagic::Enum ActiveRecord integration', :activerecord do
         expect(column_type.changed_in_place?(nil, ActiveRecordTestStatus::ACTIVE)).to be true
         expect(column_type.changed_in_place?('active', nil)).to be true
       end
+    end
+  end
+
+  describe 'assignment behaviour (consistent with ActiveRecord::Enum)' do
+    it 'casts a known value to its enum instance' do
+      expect(ActiveRecordTestRecord.new(status: 'active').status).to eq(ActiveRecordTestStatus::ACTIVE)
+    end
+
+    it 'accepts an enum instance' do
+      expect(ActiveRecordTestRecord.new(status: ActiveRecordTestStatus::PENDING).status)
+        .to eq(ActiveRecordTestStatus::PENDING)
+    end
+
+    it 'treats blank as nil' do
+      expect(ActiveRecordTestRecord.new(status: '').status).to be_nil
+      expect(ActiveRecordTestRecord.new(status: nil).status).to be_nil
+    end
+
+    it 'raises eagerly when an invalid value is assigned (not lazily on read)' do
+      record = ActiveRecordTestRecord.new
+      expect { record.status = 'invalid' }.to raise_error(
+        Unmagic::Enum::InvalidValueError,
+        /Invalid ActiveRecordTestStatus value/
+      )
+    end
+
+    it 'raises on mass-assignment of an invalid value' do
+      expect { ActiveRecordTestRecord.new(status: 'invalid') }.to raise_error(
+        Unmagic::Enum::InvalidValueError
+      )
     end
   end
 end

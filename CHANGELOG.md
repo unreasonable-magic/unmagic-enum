@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-06-04
+
+### Changed
+- Relaxed `activesupport` dependency to `>= 7.0` (removed upper bound) so the gem installs against Rails 8 and future majors
+
 ## [0.1.0] - 2026-06-04
 
 ### Added
@@ -23,5 +28,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Rails presence support (`blank?`/`present?`) and JSON serialization (`as_json`)
 - Empty strings treated as `nil`
 
-[Unreleased]: https://github.com/unreasonable-magic/unmagic-enum/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/unreasonable-magic/unmagic-enum/compare/v0.1.1...HEAD
+[0.1.1]: https://github.com/unreasonable-magic/unmagic-enum/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/unreasonable-magic/unmagic-enum/releases/tag/v0.1.0

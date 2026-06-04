@@ -120,28 +120,20 @@ class User < ApplicationRecord
 end
 ```
 
-## Running Tests
-
-```bash
-cd vendor/gems/unmagic-enum
-bundle install
-bundle exec rspec
-```
-
 ## Development
 
-The gem is located in `vendor/gems/unmagic-enum/` within the main application.
+After checking out the repo, install dependencies and run the tests:
 
-To run tests:
 ```bash
+bundle install
 bundle exec rake spec
 ```
 
-Or with specific seed:
-```bash
-bundle exec rspec --seed 12345
-```
+## Contributing
+
+Bug reports and pull requests are welcome on GitHub at
+https://github.com/unreasonable-magic/unmagic-enum.
 
 ## License
 
-MIT
+Released under the [MIT License](LICENSE).

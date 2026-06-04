@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 require 'bundler/setup'
-require 'unmagic-enum'
+require 'unmagic/enum'
 
 # Conditionally require ActiveRecord for testing integration
 begin

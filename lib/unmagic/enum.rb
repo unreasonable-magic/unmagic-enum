@@ -2,6 +2,18 @@
 
 require 'set'
 
+require 'unmagic/enum/version'
+
+# ActiveRecord is optional. We eagerly (but tolerantly) require it so that the
+# integration below activates regardless of gem load order in a Rails app. When
+# ActiveRecord isn't installed the LoadError is swallowed and the gem works as a
+# plain Ruby enum.
+begin
+  require 'active_record'
+rescue LoadError
+  # ActiveRecord is optional
+end
+
 module Unmagic
   # Base class for creating type-safe enums with string values
   #

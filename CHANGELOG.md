@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-06-09
+
+### Added
+- `column_type(validate:)` option mirroring `ActiveRecord::Enum`. Defaults to `false` (an unknown value raises eagerly on assignment, as before); pass `validate: true` to suppress the eager raise so the value casts to `nil` and model validations (`presence`/`inclusion`) handle it instead.
+
 ## [0.1.1] - 2026-06-04
 
 ### Changed

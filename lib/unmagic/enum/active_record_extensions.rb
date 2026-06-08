@@ -6,8 +6,15 @@ module Unmagic
   class Enum
     module ActiveRecordExtensions
       class ColumnType < ActiveRecord::Type::Value
-        def initialize(enum_class)
+        # `validate:` mirrors ActiveRecord::Enum's option of the same name. It
+        # defaults to false, matching Rails: an unknown value is rejected eagerly
+        # on assignment (see #assert_valid_value). Pass validate: true to opt out
+        # of the eager raise so model validations handle the unknown value
+        # instead — it casts to nil, so a `presence`/`inclusion` validation can
+        # flag it rather than the assignment blowing up.
+        def initialize(enum_class, validate: false)
           @enum_class = enum_class
+          @raise_on_invalid_values = !validate
           super()
         end
 
@@ -39,8 +46,11 @@ module Unmagic
         # ActiveModel::Attribute#with_value_from_user calls this before storing,
         # so an invalid value raises immediately on `record.attr = ...` instead
         # of later, lazily, when the attribute is read. Blank is allowed (becomes
-        # nil); an enum instance or a known key/value passes.
+        # nil); an enum instance or a known key/value passes. When the type was
+        # built with validate: true the eager raise is suppressed (the value then
+        # casts to nil), matching ActiveRecord::Enum's raise_on_invalid_values.
         def assert_valid_value(value)
+          return unless @raise_on_invalid_values
           return if value.nil? || value == ''
           return if value.is_a?(@enum_class)
           return if @enum_class[value]
@@ -62,9 +72,12 @@ module Unmagic
       end
 
       module ClassMethods
-        # For ActiveRecord attribute type definition
-        def column_type
-          @column_type ||= Unmagic::Enum::ActiveRecordExtensions::ColumnType.new(self)
+        # For ActiveRecord attribute type definition. `validate:` mirrors
+        # ActiveRecord::Enum (default false = raise eagerly on an unknown value;
+        # true = let model validations handle it). Memoised per option value.
+        def column_type(validate: false)
+          (@column_types ||= {})[validate] ||=
+            Unmagic::Enum::ActiveRecordExtensions::ColumnType.new(self, validate: validate)
         end
       end
 

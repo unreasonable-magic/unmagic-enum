@@ -3,6 +3,6 @@
 module Unmagic
   class Enum
     # Current version of the unmagic-enum gem
-    VERSION = "0.1.1"
+    VERSION = "0.2.0"
   end
 end

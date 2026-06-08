@@ -33,6 +33,17 @@ RSpec.describe 'Unmagic::Enum ActiveRecord integration', :activerecord do
     attribute :status, ActiveRecordTestStatus.column_type
   end
 
+  # validate: true opts out of the eager raise so model validations handle an
+  # unknown value (it casts to nil) instead of the assignment blowing up.
+  class ActiveRecordLenientRecord
+    include ActiveModel::Model
+    include ActiveModel::Attributes
+    include ActiveModel::Validations
+
+    attribute :status, ActiveRecordTestStatus.column_type(validate: true)
+    validates :status, presence: true
+  end
+
   describe 'ActiveRecord extensions' do
     it 'includes ActiveRecord extensions when ActiveRecord is available' do
       expect(ActiveRecordTestStatus).to respond_to(:column_type)
@@ -123,6 +134,26 @@ RSpec.describe 'Unmagic::Enum ActiveRecord integration', :activerecord do
           /Invalid ActiveRecordTestStatus value/
         )
       end
+
+      context 'with validate: true' do
+        let(:lenient_type) { ActiveRecordTestStatus.column_type(validate: true) }
+
+        it 'does not raise for an unknown value' do
+          expect { lenient_type.assert_valid_value('invalid') }.not_to raise_error
+        end
+
+        it 'still casts a known value and nils an unknown one' do
+          expect(lenient_type.cast('active')).to eq(ActiveRecordTestStatus::ACTIVE)
+          expect(lenient_type.cast('invalid')).to be_nil
+        end
+
+        it 'memoises a distinct instance per option value' do
+          expect(ActiveRecordTestStatus.column_type(validate: true))
+            .to be(ActiveRecordTestStatus.column_type(validate: true))
+          expect(ActiveRecordTestStatus.column_type(validate: true))
+            .not_to be(ActiveRecordTestStatus.column_type)
+        end
+      end
     end
 
     describe '#serialize' do
@@ -177,6 +208,26 @@ RSpec.describe 'Unmagic::Enum ActiveRecord integration', :activerecord do
       expect { ActiveRecordTestRecord.new(status: 'invalid') }.to raise_error(
         Unmagic::Enum::InvalidValueError
       )
+    end
+
+    context 'with validate: true' do
+      it 'assigns an unknown value as nil instead of raising' do
+        record = ActiveRecordLenientRecord.new
+        expect { record.status = 'invalid' }.not_to raise_error
+        expect(record.status).to be_nil
+      end
+
+      it 'lets a model validation flag the unknown (now nil) value' do
+        record = ActiveRecordLenientRecord.new(status: 'invalid')
+        expect(record.valid?).to be false
+        expect(record.errors[:status]).to be_present
+      end
+
+      it 'still accepts a known value' do
+        record = ActiveRecordLenientRecord.new(status: 'active')
+        expect(record.valid?).to be true
+        expect(record.status).to eq(ActiveRecordTestStatus::ACTIVE)
+      end
     end
   end
 end

@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- `column_type(array: true)` for columns holding multiple values of one enum as a JSON array (a `json`/`jsonb` column). Elements get the same treatment as a scalar `column_type`: cast to enum instances, validated eagerly on assignment (honouring `validate:`), serialized to database values. Blank elements are dropped on cast — so the blank entry a check-box collection's auxiliary hidden field submits never reaches the stored array — and unknown stored values are dropped on read.
+
 ## [0.2.0] - 2026-06-09
 
 ### Added

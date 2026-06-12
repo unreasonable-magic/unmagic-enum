@@ -44,6 +44,15 @@ RSpec.describe 'Unmagic::Enum ActiveRecord integration', :activerecord do
     validates :status, presence: true
   end
 
+  # Multi-valued attribute backed by ArrayColumnType, the way a json/jsonb
+  # column holding several enum values would be declared.
+  class ActiveRecordMultiRecord
+    include ActiveModel::Model
+    include ActiveModel::Attributes
+
+    attribute :statuses, ActiveRecordTestStatus.column_type(array: true)
+  end
+
   describe 'ActiveRecord extensions' do
     it 'includes ActiveRecord extensions when ActiveRecord is available' do
       expect(ActiveRecordTestStatus).to respond_to(:column_type)
@@ -228,6 +237,168 @@ RSpec.describe 'Unmagic::Enum ActiveRecord integration', :activerecord do
         expect(record.valid?).to be true
         expect(record.status).to eq(ActiveRecordTestStatus::ACTIVE)
       end
+    end
+  end
+
+  describe 'ArrayColumnType' do
+    let(:array_type) { ActiveRecordTestStatus.column_type(array: true) }
+
+    describe '.column_type(array: true)' do
+      it 'returns an array type instance' do
+        expect(array_type).to be_a(Unmagic::Enum::ActiveRecordExtensions::ArrayColumnType)
+      end
+
+      it 'reports a json column type' do
+        expect(array_type.type).to eq(:json)
+      end
+
+      it 'memoises a distinct instance per option set' do
+        expect(ActiveRecordTestStatus.column_type(array: true))
+          .to be(ActiveRecordTestStatus.column_type(array: true))
+        expect(ActiveRecordTestStatus.column_type(array: true))
+          .not_to be(ActiveRecordTestStatus.column_type)
+        expect(ActiveRecordTestStatus.column_type(array: true, validate: true))
+          .not_to be(ActiveRecordTestStatus.column_type(array: true))
+      end
+    end
+
+    describe '#cast' do
+      it 'casts an array of strings to enum instances' do
+        expect(array_type.cast(%w[active pending]))
+          .to eq([ActiveRecordTestStatus::ACTIVE, ActiveRecordTestStatus::PENDING])
+      end
+
+      it 'passes enum instances through' do
+        expect(array_type.cast([ActiveRecordTestStatus::ACTIVE])).to eq([ActiveRecordTestStatus::ACTIVE])
+      end
+
+      it 'wraps a single value' do
+        expect(array_type.cast('active')).to eq([ActiveRecordTestStatus::ACTIVE])
+      end
+
+      it 'casts nil to an empty array' do
+        expect(array_type.cast(nil)).to eq([])
+      end
+
+      it 'drops blank elements (the entry a check-box collection hidden field submits)' do
+        expect(array_type.cast(['', 'active'])).to eq([ActiveRecordTestStatus::ACTIVE])
+      end
+
+      it 'drops unknown elements (lenient, like ColumnType#cast)' do
+        expect(array_type.cast(%w[invalid active])).to eq([ActiveRecordTestStatus::ACTIVE])
+      end
+    end
+
+    describe '#deserialize' do
+      it 'deserializes a JSON document of database values' do
+        expect(array_type.deserialize('["active","pending"]'))
+          .to eq([ActiveRecordTestStatus::ACTIVE, ActiveRecordTestStatus::PENDING])
+      end
+
+      it 'deserializes custom values' do
+        msg_type = ActiveRecordTestMessageType.column_type(array: true)
+        expect(msg_type.deserialize('["bot"]')).to eq([ActiveRecordTestMessageType::ENTITY])
+      end
+
+      it 'deserializes an already-decoded array' do
+        expect(array_type.deserialize(%w[active])).to eq([ActiveRecordTestStatus::ACTIVE])
+      end
+
+      it 'returns an empty array for nil and empty string' do
+        expect(array_type.deserialize(nil)).to eq([])
+        expect(array_type.deserialize('')).to eq([])
+      end
+
+      it 'drops database values the enum no longer recognises' do
+        expect(array_type.deserialize('["invalid","active"]')).to eq([ActiveRecordTestStatus::ACTIVE])
+      end
+    end
+
+    describe '#assert_valid_value' do
+      it 'passes for nil, blank elements, and known elements' do
+        expect { array_type.assert_valid_value(nil) }.not_to raise_error
+        expect { array_type.assert_valid_value(['', 'active']) }.not_to raise_error
+        expect { array_type.assert_valid_value([ActiveRecordTestStatus::ACTIVE]) }.not_to raise_error
+      end
+
+      it 'raises for an unknown element' do
+        expect { array_type.assert_valid_value(%w[active invalid]) }.to raise_error(
+          Unmagic::Enum::InvalidValueError,
+          /Invalid ActiveRecordTestStatus value/
+        )
+      end
+
+      context 'with validate: true' do
+        let(:lenient_type) { ActiveRecordTestStatus.column_type(array: true, validate: true) }
+
+        it 'does not raise for an unknown element' do
+          expect { lenient_type.assert_valid_value(%w[invalid]) }.not_to raise_error
+        end
+
+        it 'drops the unknown element on cast' do
+          expect(lenient_type.cast(%w[invalid active])).to eq([ActiveRecordTestStatus::ACTIVE])
+        end
+      end
+    end
+
+    describe '#serialize' do
+      it 'serializes enum instances to a JSON document of database values' do
+        expect(array_type.serialize([ActiveRecordTestStatus::ACTIVE, ActiveRecordTestStatus::PENDING]))
+          .to eq('["active","pending"]')
+      end
+
+      it 'serializes custom values correctly' do
+        msg_type = ActiveRecordTestMessageType.column_type(array: true)
+        expect(msg_type.serialize([ActiveRecordTestMessageType::ENTITY])).to eq('["bot"]')
+      end
+
+      it 'serializes an empty array to an empty JSON document' do
+        expect(array_type.serialize([])).to eq('[]')
+      end
+
+      it 'serializes nil to nil' do
+        expect(array_type.serialize(nil)).to be_nil
+      end
+    end
+
+    describe '#changed_in_place?' do
+      it 'detects in-place mutation by comparing serialized forms' do
+        expect(array_type.changed_in_place?('["active"]', [ActiveRecordTestStatus::ACTIVE])).to be false
+        expect(array_type.changed_in_place?(
+                 '["active"]',
+                 [ActiveRecordTestStatus::ACTIVE, ActiveRecordTestStatus::PENDING]
+               )).to be true
+      end
+
+      it 'treats order as significant' do
+        expect(array_type.changed_in_place?(
+                 '["active","pending"]',
+                 [ActiveRecordTestStatus::PENDING, ActiveRecordTestStatus::ACTIVE]
+               )).to be true
+      end
+    end
+  end
+
+  describe 'array assignment behaviour' do
+    it 'casts assigned values to enum instances' do
+      record = ActiveRecordMultiRecord.new(statuses: %w[active pending])
+      expect(record.statuses).to eq([ActiveRecordTestStatus::ACTIVE, ActiveRecordTestStatus::PENDING])
+    end
+
+    it 'drops the blank entry a check-box collection submits' do
+      record = ActiveRecordMultiRecord.new(statuses: ['', 'active'])
+      expect(record.statuses).to eq([ActiveRecordTestStatus::ACTIVE])
+    end
+
+    it 'casts an assigned nil to an empty array' do
+      expect(ActiveRecordMultiRecord.new(statuses: nil).statuses).to eq([])
+    end
+
+    it 'raises eagerly when an unknown element is assigned' do
+      expect { ActiveRecordMultiRecord.new(statuses: %w[invalid]) }.to raise_error(
+        Unmagic::Enum::InvalidValueError,
+        /Invalid ActiveRecordTestStatus value/
+      )
     end
   end
 end

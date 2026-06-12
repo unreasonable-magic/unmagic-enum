@@ -81,6 +81,33 @@ message.state               # => Message::State::SENT
 message.state.sent?         # => true
 ```
 
+### Multiple Values (JSON Array Columns)
+
+For a `json`/`jsonb` column holding several values of one enum, pass `array: true`:
+
+```ruby
+class Article < ApplicationRecord
+  class Topic < Unmagic::Enum
+    SCIENCE = new("science")
+    POLITICS = new("politics")
+    SPORT = new("sport")
+  end
+
+  attribute :topics, Topic.column_type(array: true)
+end
+
+article = Article.new(topics: ["science", "sport"])
+article.topics              # => [Article::Topic::SCIENCE, Article::Topic::SPORT]
+```
+
+Each element behaves like a scalar `column_type`: cast to an enum instance,
+validated eagerly on assignment (an unknown element raises, unless built with
+`validate: true`), and serialized to its database value. Blank elements are
+dropped on cast — so the blank entry a check-box collection's auxiliary hidden
+field submits never reaches the stored array — and stored values the enum no
+longer recognises are dropped on read. The attribute always reads as an array,
+never `nil`.
+
 ### Key/Value Separation
 
 Useful when database values differ from code identifiers:

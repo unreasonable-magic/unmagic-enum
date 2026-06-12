@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-06-12
+
 ### Added
 - `column_type(array: true)` for columns holding multiple values of one enum as a JSON array (a `json`/`jsonb` column). Elements get the same treatment as a scalar `column_type`: cast to enum instances, validated eagerly on assignment (honouring `validate:`), serialized to database values. Blank elements are dropped on cast — so the blank entry a check-box collection's auxiliary hidden field submits never reaches the stored array — and unknown stored values are dropped on read.
 
@@ -36,6 +38,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Rails presence support (`blank?`/`present?`) and JSON serialization (`as_json`)
 - Empty strings treated as `nil`
 
-[Unreleased]: https://github.com/unreasonable-magic/unmagic-enum/compare/v0.1.1...HEAD
+[Unreleased]: https://github.com/unreasonable-magic/unmagic-enum/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/unreasonable-magic/unmagic-enum/compare/v0.2.0...v0.3.0
+[0.2.0]: https://github.com/unreasonable-magic/unmagic-enum/compare/v0.1.1...v0.2.0
 [0.1.1]: https://github.com/unreasonable-magic/unmagic-enum/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/unreasonable-magic/unmagic-enum/releases/tag/v0.1.0
